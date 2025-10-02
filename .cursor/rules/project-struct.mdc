@@ -1,0 +1,48 @@
+---
+alwaysApply: false
+---
+# Project Structure
+- All domain code lives in `src/`
+- Each domain must have: `router.py`, `schemas.py`, `models.py`, `service.py`, `dependencies.py`, `constants.py`, `exceptions.py`, `config.py`, `utils.py`
+- Global modules (db, config, pagination, exceptions) stay in `src/` root
+- Imports across domains must be explicit, e.g. `from src.auth import service as auth_service`
+
+# Async & Dependencies
+- Default all routes to `async def`
+- Never block event loop with sync I/O (use `await`, or wrap sync SDK in `run_in_threadpool`)
+- Prefer async dependencies over sync ones
+- Dependencies should be small, composable, and reused (FastAPI caches them)
+
+# Tasks
+- I/O intensive → async or threadpool
+- CPU intensive → background worker / process, not inside FastAPI loop
+
+# Pydantic
+- Always use Pydantic models for request/response
+- Use a shared `BaseModel` with datetime/json encoders
+- Split `BaseSettings` by module (not global monolith)
+- Raise `ValueError` in validators → FastAPI returns proper validation errors
+
+# API Design
+- Follow REST resource naming
+- Path params consistent across endpoints
+- Always set `response_model`, `status_code`, `description`, `responses`
+
+# Database
+- SQL-first, Pydantic-second
+- Naming: `lower_case_snake`, singular, suffix `_id`, `_at`, `_date`
+- Explicit DB index/constraint naming conventions
+- Migrations must be static, revertable, with descriptive slugs
+
+# Testing
+- Use async test client (`httpx`, `async-asgi-testclient`)
+- Async test infra from day 0
+
+# Code Quality
+- Enforce Ruff: `ruff check --fix` + `ruff format`
+- No manual formatting
+- Explicit imports only
+
+# Docs
+- Disable OpenAPI docs in production (enable only in local/staging)
+- If enabled, every route must set proper metadata (summary, description, responses)
