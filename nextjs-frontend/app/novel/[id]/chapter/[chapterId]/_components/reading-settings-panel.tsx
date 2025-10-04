@@ -3,15 +3,10 @@
 import { X, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { useReadingSettings } from "@/contexts/reading-settings-context"
+import { useReadingSettings } from "./page-context"
 
-interface ReadingSettingsPanelProps {
-  isOpen: boolean
-  onClose: () => void
-}
-
-export function ReadingSettingsPanel({ isOpen, onClose }: ReadingSettingsPanelProps) {
-  const { settings, updateSettings, resetSettings } = useReadingSettings()
+export function ReadingSettingsPanel() {
+  const { settings, updateSettings, resetSettings, isSettingsOpen, setIsSettingsOpen } = useReadingSettings()
 
   const fontFamilies = [
     { value: "serif" as const, label: "Serif", preview: "Georgia, Merriweather" },
@@ -35,21 +30,21 @@ export function ReadingSettingsPanel({ isOpen, onClose }: ReadingSettingsPanelPr
   return (
     <>
       {/* Backdrop */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={onClose} aria-hidden="true" />
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={() => setIsSettingsOpen(false)} aria-hidden="true" />
       )}
 
       {/* Panel */}
       <div
         className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-background border-l border-border z-50 transform transition-transform duration-300 overflow-y-auto ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+          isSettingsOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Cài đặt đọc</h2>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(false)}>
               <X className="w-5 h-5" />
             </Button>
           </div>

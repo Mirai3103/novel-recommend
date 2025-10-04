@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { logoutApiUsersLogoutPost } from "@/lib/client"
 import { useTheme } from "./theme-provider"
+import { usePathname } from "next/navigation"
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -19,6 +20,8 @@ export function Header() {
   const { isLoggedIn, user } = useAuth()
   console.log("Header", isLoggedIn, user)
   const [notificationCount, setNotificationCount] = useState(3)
+  const pathname = usePathname()
+
   
 
 
@@ -36,6 +39,10 @@ export function Header() {
     { label: "Xếp hạng", href: "#trending" },
     { label: "Mới cập nhật", href: "#latest" },
   ]
+ // if pathname is /novel/[id]/chapter/[chapterId], return null
+ if (/^\/novel\/[^/]+\/chapter\/[^/]+$/.test(pathname)) {
+  return null;
+}
 
   return (
     <header

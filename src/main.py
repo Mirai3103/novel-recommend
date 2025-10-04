@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
+load_dotenv()
 import uvicorn
 from src.novels.router import router as novels_router
 from src.chapters.router import router as chapters_router

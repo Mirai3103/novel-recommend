@@ -1,38 +1,28 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { ArrowUp, Settings, List } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useReadingSettings } from "./page-context"
 
-interface FloatingActionButtonsProps {
-  onSettingsClick: () => void
-  progress: number
-}
 
-export function FloatingActionButtons({ onSettingsClick, progress }: FloatingActionButtonsProps) {
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsVisible(window.scrollY > 300)
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+export function FloatingActionButtons() {
+  const { scrollProgress, isScrolled, setIsSettingsOpen } = useReadingSettings()
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  if (!isVisible) return null
-
   return (
-    <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
+    <div 
+      className={`fixed bottom-6 right-6 flex flex-col gap-3 z-40 transition-all duration-300 ${
+        isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+      }`}
+      style={{ transform: 'translateZ(0)', willChange: 'opacity, transform' }}
+    >
       {/* Progress Indicator */}
       <div className="relative">
-        <svg className="w-14 h-14 -rotate-90">
-          <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="3" fill="none" className="text-muted" />
+        <svg className="w-14 h-14 -rotate-90" style={{ transform: 'translateZ(0)' }}>
+          <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="3" fill="none" className="text-muted/50" />
           <circle
             cx="28"
             cy="28"
@@ -40,14 +30,15 @@ export function FloatingActionButtons({ onSettingsClick, progress }: FloatingAct
             stroke="currentColor"
             strokeWidth="3"
             fill="none"
-            className="text-purple-500"
+            className="text-purple-500 transition-all duration-150"
             strokeDasharray={`${2 * Math.PI * 24}`}
-            strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress / 100)}`}
+            strokeDashoffset={`${2 * Math.PI * 24 * (1 - scrollProgress / 100)}`}
             strokeLinecap="round"
+            style={{ willChange: 'stroke-dashoffset' }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold">
-          {Math.round(progress)}%
+          {Math.round(scrollProgress)}%
         </div>
       </div>
 
@@ -56,7 +47,7 @@ export function FloatingActionButtons({ onSettingsClick, progress }: FloatingAct
         size="icon"
         className="w-14 h-14 rounded-full shadow-lg bg-background hover:bg-accent"
         variant="outline"
-        onClick={onSettingsClick}
+        onClick={() => setIsSettingsOpen(true)}
       >
         <Settings className="w-5 h-5" />
       </Button>

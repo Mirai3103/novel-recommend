@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ChapterBase(BaseModel):
@@ -62,4 +62,13 @@ class ChapterDetail(ChapterOut):
     volume: VolumeBrief
     novel: NovelInfo
 
+    @model_validator(mode="before")
+    def extract_novel(cls, values):
+        # Nếu input là SQLAlchemy object
+        if hasattr(values, "volume") and values.volume is not None:
+            values.novel = values.volume.novel
+        # Nếu input là dict
+        elif isinstance(values, dict) and "volume" in values and values["volume"]:
+            values["novel"] = values["volume"].novel
+        return values
 

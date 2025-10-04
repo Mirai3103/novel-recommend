@@ -23,7 +23,15 @@ export function ThemeProvider({ children, defaultTheme = "dark", ...props }: The
     const root = window.document.documentElement
     root.classList.remove("light", "dark")
     root.classList.add(theme)
+    localStorage.setItem("theme", theme)
   }, [theme])
+  React.useEffect(() => {
+    const saved = localStorage.getItem("theme")
+    if (saved) {
+      setTheme(saved as Theme)
+    }
+  }, [])
+  
 
   const value = {
     theme,

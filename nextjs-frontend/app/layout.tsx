@@ -72,6 +72,12 @@ export default async function RootLayout({
   isLoggedIn = !!user;
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+      <script
+          crossOrigin="anonymous"
+          src="//unpkg.com/react-scan/dist/auto.global.js"
+        />
+      </head>
       <body className={`font-sans ${roboto.variable} antialiased`}>
         <Suspense fallback={null}>
           <AuthProvider user={user||null} isLoggedIn={isLoggedIn}>

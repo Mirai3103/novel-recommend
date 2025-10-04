@@ -1,74 +1,62 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Eye, FileText, Clock } from "lucide-react"
-import { useReadingSettings } from "@/contexts/reading-settings-context"
-import { ChapterDetail } from "@/lib/client"
+import { Eye, FileText } from "lucide-react";
+import { useReadingSettings } from "./page-context";
+import { ChapterDetail } from "@/lib/client";
+import React, { useMemo } from "react";
 
 interface ChapterContentProps {
-  chapter?: ChapterDetail
-  novelTitle?: string
+  chapter?: ChapterDetail;
+  novelTitle?: string;
 }
 
 export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
-  const { settings } = useReadingSettings()
-  const [progress, setProgress] = useState(0)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const windowHeight = window.innerHeight
-      const documentHeight = document.documentElement.scrollHeight
-      const scrollTop = window.scrollY
-      const scrollPercent = (scrollTop / (documentHeight - windowHeight)) * 100
-      setProgress(Math.min(100, Math.max(0, scrollPercent)))
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  const { settings, scrollProgress } = useReadingSettings();
 
   const getMaxWidth = () => {
     switch (settings.max_width) {
       case "narrow":
-        return "600px"
+        return "600px";
       case "wide":
-        return "900px"
+        return "900px";
       default:
-        return "750px"
+        return "750px";
     }
-  }
+  };
 
   const getFontFamily = () => {
     switch (settings.font_family) {
       case "sans-serif":
-        return "var(--font-sans)"
+        return "var(--font-sans)";
       case "mono":
-        return "var(--font-mono)"
+        return "var(--font-mono)";
       default:
-        return "Georgia, 'Times New Roman', serif"
+        return "Georgia, 'Times New Roman', serif";
     }
-  }
+  };
 
   const getThemeColors = () => {
     switch (settings.theme) {
       case "dark":
-        return { bg: "#1e1e1e", text: "#e5e5e5", secondary: "#9ca3af" }
+        return { bg: "#1e1e1e", text: "#e5e5e5", secondary: "#9ca3af" };
       case "sepia":
-        return { bg: "#f4ecd8", text: "#5c4a3a", secondary: "#8b7355" }
+        return { bg: "#f4ecd8", text: "#5c4a3a", secondary: "#8b7355" };
       case "night":
-        return { bg: "#000000", text: "#cccccc", secondary: "#808080" }
+        return { bg: "#000000", text: "#cccccc", secondary: "#808080" };
       default:
-        return { bg: "#ffffff", text: "#1a1a1a", secondary: "#6b7280" }
+        return { bg: "#ffffff", text: "#1a1a1a", secondary: "#6b7280" };
     }
-  }
+  };
 
-  const themeColors = getThemeColors()
+  const themeColors = useMemo(() => getThemeColors(), [settings.theme]);
 
   const formatNumber = (num: number) => {
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
-    return num.toString()
-  }
-  if (!chapter) return null
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  if (!chapter) return null;
+
   return (
     <div
       className="min-h-screen transition-colors duration-300"
@@ -80,8 +68,12 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
       {/* Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-muted/20 z-50">
         <div
-          className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-150"
-          style={{ width: `${progress}%` }}
+          className="h-full bg-gradient-to-r from-purple-600 to-pink-600"
+          style={{
+            width: `${scrollProgress}%`,
+            transform: "translateZ(0)",
+            willChange: "width",
+          }}
         />
       </div>
 
@@ -98,10 +90,15 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
         >
           {/* Header */}
           <header className="mb-12 text-center">
-            <div className="text-sm mb-2" style={{ color: themeColors.secondary }}>
+            <div
+              className="text-sm mb-2"
+              style={{ color: themeColors.secondary }}
+            >
               {novelTitle}
             </div>
-            <h1 className="text-4xl font-bold mb-6 text-balance">{chapter.title ?? ""}</h1>
+            <h1 className="text-4xl font-bold mb-6 text-balance">
+              {chapter.title ?? ""}
+            </h1>
 
             {/* Meta */}
             <div
@@ -110,7 +107,7 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
             >
               <span className="flex items-center gap-1">
                 <FileText className="w-4 h-4" />
-                {formatNumber(chapter.content?.length ?? 0)} từ
+                {formatNumber((chapter.content?.length ?? 0) as number)} từ
               </span>
               {/* <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
@@ -118,7 +115,7 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
               </span> */}
               <span className="flex items-center gap-1">
                 <Eye className="w-4 h-4" />
-                {formatNumber(chapter.meta?.views ?? 0)} lượt xem
+                {formatNumber((chapter.meta?.views ?? 0) as number)} lượt xem
               </span>
             </div>
 
@@ -126,13 +123,7 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
           </header>
 
           {/* Content */}
-          <div
-            className="prose prose-lg max-w-none chapter-content"
-            dangerouslySetInnerHTML={{ __html: chapter.content ?? "" }}
-            style={{
-              color: themeColors.text,
-            }}
-          />
+          <Content content={chapter.content ?? ""} themeColors={themeColors} />
         </article>
       </div>
 
@@ -164,7 +155,12 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
           text-align: center;
           width: 100px;
           height: 2px;
-          background: linear-gradient(to right, transparent, currentColor, transparent);
+          background: linear-gradient(
+            to right,
+            transparent,
+            currentColor,
+            transparent
+          );
           opacity: 0.3;
         }
 
@@ -178,5 +174,31 @@ export function ChapterContent({ chapter, novelTitle }: ChapterContentProps) {
         }
       `}</style>
     </div>
-  )
+  );
 }
+
+type ThemeColors = {
+  bg: string;
+  text: string;
+  secondary: string;
+};
+const Content = React.memo(
+  ({
+    content,
+    themeColors,
+  }: {
+    content: string;
+    themeColors: ThemeColors;
+  }) => {
+    console.log("render content");
+    return (
+      <div
+        className="prose prose-lg max-w-none chapter-content"
+        dangerouslySetInnerHTML={{ __html: content ?? "" }}
+        style={{
+          color: themeColors.text,
+        }}
+      />
+    );
+  }
+);
