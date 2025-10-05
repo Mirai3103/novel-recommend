@@ -1,9 +1,9 @@
 from fastapi import Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_db
+from src.database import get_async_db
 
 
-def db_dep(db: Session = Depends(get_db)) -> Session:
+async def db_dep(db: AsyncSession = Depends(get_async_db)) -> AsyncSession:
     return db
 

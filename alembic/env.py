@@ -1,11 +1,23 @@
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from dotenv import load_dotenv
+load_dotenv()  # load từ .env vào os.environ
 
+# Lấy URL từ biến môi trường
+DATABASE_URL = os.getenv("DATABASE_URL")
 from alembic import context
 from src.database import Base
 from src import models
+config = context.config
+
+# Ghi đè sqlalchemy.url trong config bằng giá trị từ env
+if DATABASE_URL:
+    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+else:
+    raise RuntimeError("DATABASE_URL not found in environment variables")
 
 target_metadata = Base.metadata
 

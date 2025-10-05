@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Star, Play, BookmarkPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { NovelBrief as GeneratedNovelBrief } from "@/lib/client"
 import { getProxiedImageUrl } from "@/lib/utils/image"
 import { Badge } from "./ui/badge"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-type NovelBrief = Omit<GeneratedNovelBrief, "meta"> & {
+import { SrcNovelsSchemasNovelBrief } from "@/lib/client/client.schemas"
+type NovelBrief = Omit<SrcNovelsSchemasNovelBrief, "meta"> & {
   meta: {
     bookmark_count: string;
     hako_url: string;
@@ -83,7 +83,7 @@ export function HeroCarousel({ featuredNovels }: HeroCarouselProps) {
                   <Star
                     key={i}
                     className={`h-5 w-5 ${
-                      i < Math.floor(Number(currentNovel.meta.rating)||0) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"
+                      i < Math.floor(Number(currentNovel.meta?.rating)||0) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"
                     }`}
                   />
                 ))}

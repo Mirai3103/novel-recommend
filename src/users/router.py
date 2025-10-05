@@ -3,8 +3,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Response, Cookie
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.users.schemas import Token, UserOut, UserRegister, UserUpdate, RefreshTokenRequest
 from src.users.dependencies import db_dep, get_current_user, CurrentUser
@@ -46,9 +45,9 @@ router = APIRouter(prefix="/users", tags=["users"])
     summary="Register new user",
     description="Create a new user account.",
 )
-async def register(data: UserRegister, db: Session = Depends(db_dep)) -> UserOut:
+async def register(data: UserRegister, db: AsyncSession = Depends(db_dep)) -> UserOut:
     try:
-        user = await run_in_threadpool(create_user, db, data)
+        user = await create_user(db, data)
         return UserOut.model_validate(user)
     except UserAlreadyExistsError as e:
         raise HTTPException(
@@ -67,15 +66,10 @@ async def register(data: UserRegister, db: Session = Depends(db_dep)) -> UserOut
 async def login(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> Token:
     try:
-        user = await run_in_threadpool(
-            authenticate_user,
-            db,
-            form_data.username,
-            form_data.password
-        )
+        user = await authenticate_user(db, form_data.username, form_data.password)
         
         # Create access token (short-lived)
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -140,10 +134,10 @@ async def get_current_user_info(current_user: CurrentUser) -> UserOut:
 async def update_current_user(
     data: UserUpdate,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> UserOut:
     try:
-        user = await run_in_threadpool(update_user, db, current_user.id, data)
+        user = await update_user(db, current_user.id, data)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -166,7 +160,7 @@ async def update_current_user(
 )
 async def refresh_access_token(
     response: Response,
-    db: Session = Depends(db_dep),
+    db: AsyncSession = Depends(db_dep),
     refresh_token: Optional[str] = Cookie(default=None, alias=REFRESH_TOKEN_COOKIE_NAME),
     refresh_token_request: Optional[RefreshTokenRequest] = Body(default=None),
 ) -> Token:
@@ -188,7 +182,7 @@ async def refresh_access_token(
         )
     
     # Verify user exists
-    user = await run_in_threadpool(get_user_by_id, db, user_id)
+    user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

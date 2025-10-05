@@ -5,9 +5,12 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 
+
+
 class BookmarkTypeEnum(str, Enum):
     NOVEL = "novel"
     CHAPTER = "chapter"
+
 
 
 class BookmarkBase(BaseModel):
@@ -17,13 +20,16 @@ class BookmarkBase(BaseModel):
     line: Optional[int] = None
 
 
+
 class BookmarkCreate(BookmarkBase):
     pass
+
 
 
 class BookmarkUpdate(BaseModel):
     chapter_id: Optional[UUID] = None
     line: Optional[int] = None
+
 
 
 class BookmarkOut(BookmarkBase):
@@ -35,6 +41,7 @@ class BookmarkOut(BookmarkBase):
         from_attributes = True
 
 
+
 class NovelBrief(BaseModel):
     id: UUID
     title: str
@@ -43,6 +50,7 @@ class NovelBrief(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class ChapterBrief(BaseModel):

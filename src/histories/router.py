@@ -2,12 +2,11 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.histories.schemas import HistoryCreate, HistoryDetail, HistoryOut
 from src.histories.dependencies import db_dep
-from src.histories.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from src.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from src.histories.service import (
     create_history,
     delete_all_history,
@@ -17,7 +16,7 @@ from src.histories.service import (
     get_last_read_chapter,
     list_histories,
 )
-from src.histories.utils import paginate_params
+from src.pagination import paginate_params
 from src.users.dependencies import CurrentUser
 
 
@@ -34,9 +33,9 @@ router = APIRouter(prefix="/histories", tags=["histories"])
 async def create_history_endpoint(
     data: HistoryCreate,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> HistoryOut:
-    history = await run_in_threadpool(create_history, db, current_user.id, data)
+    history = await create_history(db, current_user.id, data)
     return HistoryOut.model_validate(history)
 
 
@@ -52,12 +51,10 @@ async def list_histories_endpoint(
     novel_id: Optional[UUID] = Query(default=None),
     skip: int | None = Query(default=0, ge=0),
     limit: int | None = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
-    db: Session = Depends(db_dep),
+    db: AsyncSession = Depends(db_dep),
 ) -> List[HistoryDetail]:
     s, l = paginate_params(skip, limit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
-    histories = await run_in_threadpool(
-        list_histories, db, current_user.id, s, l, novel_id
-    )
+    histories = await list_histories(db, current_user.id, s, l, novel_id)
     return [HistoryDetail.model_validate(h) for h in histories]
 
 
@@ -71,9 +68,9 @@ async def list_histories_endpoint(
 async def get_last_read_chapter_endpoint(
     novel_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> HistoryDetail:
-    history = await run_in_threadpool(get_last_read_chapter, db, current_user.id, novel_id)
+    history = await get_last_read_chapter(db, current_user.id, novel_id)
     if not history:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -92,9 +89,9 @@ async def get_last_read_chapter_endpoint(
 async def get_history_endpoint(
     history_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> HistoryDetail:
-    history = await run_in_threadpool(get_history, db, history_id, current_user.id)
+    history = await get_history(db, history_id, current_user.id)
     if not history:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -112,9 +109,9 @@ async def get_history_endpoint(
 async def delete_history_endpoint(
     history_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> None:
-    ok = await run_in_threadpool(delete_history, db, history_id, current_user.id)
+    ok = await delete_history(db, history_id, current_user.id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,9 +128,9 @@ async def delete_history_endpoint(
 )
 async def delete_all_history_endpoint(
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> None:
-    ok = await run_in_threadpool(delete_all_history, db, current_user.id)
+    ok = await delete_all_history(db, current_user.id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -151,9 +148,9 @@ async def delete_all_history_endpoint(
 async def delete_history_by_novel_endpoint(
     novel_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> None:
-    ok = await run_in_threadpool(delete_history_by_novel, db, current_user.id, novel_id)
+    ok = await delete_history_by_novel(db, current_user.id, novel_id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

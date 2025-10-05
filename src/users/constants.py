@@ -19,7 +19,4 @@ REFRESH_TOKEN_COOKIE_SECURE = False  # Set to True in production with HTTPS
 REFRESH_TOKEN_COOKIE_HTTPONLY = True
 REFRESH_TOKEN_COOKIE_SAMESITE = "lax"  # "strict" or "lax" or "none"
 REFRESH_TOKEN_COOKIE_PATH = "/"
-# Pagination
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
 

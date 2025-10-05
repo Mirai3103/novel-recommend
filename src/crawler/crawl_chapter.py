@@ -2,17 +2,19 @@ import asyncio
 import time
 import httpx
 import random
+from dotenv import load_dotenv
+load_dotenv()
 from bs4 import BeautifulSoup
-from sqlalchemy.orm import Session
-from src.database import SessionLocal
+from sqlalchemy import select, update
+from src.database import AsyncSessionLocal
 from src.models import Chapter
-import json
 from tqdm.asyncio import tqdm_asyncio
+from datetime import datetime
+from collections import deque
 
 
 BASE_URL = "https://docln.sbs{}"
 
-# Danh sách proxy
 PROXIES = [
     "199.7.142.57:25946:wqVnhE:qTFcqS",
     "200.229.24.140:31781:wqVnhE:qTFcqS",
@@ -30,116 +32,148 @@ PROXIES = [
     "206.125.175.243:26841:wqVnhE:qTFcqS"
 ]
 
+proxy_pool = deque(PROXIES)
 
-def get_random_proxy():
-    """Chọn ngẫu nhiên một proxy từ danh sách"""
-    proxy_str = random.choice(PROXIES)
+def get_next_proxy() -> str:
+    """Round-robin proxy để phân tải đều"""
+    proxy_str = proxy_pool[0]
+    proxy_pool.rotate(-1)
     ip_port, username, password = proxy_str.rsplit(':', 2)
-    proxy_url = f"http://{username}:{password}@{ip_port}"
-    return proxy_url
+    return f"http://{username}:{password}@{ip_port}"
 
-
-async def fetch_chapter(client: httpx.AsyncClient, url: str, sem: asyncio.Semaphore, max_retries=3):
-    """Fetch chapter với retry logic và proxy rotation"""
+notfoundErrors=[]
+async def fetch_chapter(url: str, sem: asyncio.Semaphore, max_retries=3):
+    """Fetch chapter với retry và proxy rotation"""
     async with sem:
         for attempt in range(max_retries):
+            proxy_url = get_next_proxy()
             try:
-                resp = await client.get(url, timeout=30)
-                resp.raise_for_status()
-                # await asyncio.sleep(1)  # throttle
-                return resp.text
-            except (httpx.HTTPStatusError, httpx.ProxyError, httpx.ConnectError) as e:
+                async with httpx.AsyncClient(
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    proxy=proxy_url,
+                    timeout=30
+                ) as client:
+                    resp = await client.get(url)
+                    status_code = resp.status_code
+                    if status_code == 404:
+                        notfoundErrors.append(url)
+                    resp.raise_for_status()
+                    return resp.text
+            except Exception as e:
                 if attempt < max_retries - 1:
-                    print(f"⚠️  Proxy error (attempt {attempt + 1}/{max_retries}): {e}")
-                    await asyncio.sleep(2)  # Đợi trước khi retry
-                else:
-                    raise
+                    await asyncio.sleep(random.uniform(1, 3))
+        return None
 
 
 def parse_chapter_content(html: str):
+    """Trích xuất nội dung chương"""
     soup = BeautifulSoup(html, "html.parser")
-
-    # Title
-    title_tag = soup.select_one(".title-top h4")
-    title = title_tag.get_text(strip=True) if title_tag else None
-
-    # Nội dung
-    content_div = soup.select_one("#chapter-content")
-    content_html = str(content_div) if content_div else None
-
-    return title, content_html
+    time_tag = soup.select_one("time.topic-time")
+    last_time = time_tag.get("datetime") if time_tag else None
+    return last_time
 
 
-isDone = False
+async def crawl_and_update(chap_id, hako_url, sem):
+    """Crawl 1 chương và update DB với session riêng"""
+    url = BASE_URL.format(hako_url)
+    html = await fetch_chapter(url, sem)
+    
+    if not html:
+        return {"id": chap_id, "success": False, "error": "fetch_failed"}
+
+    last_time = parse_chapter_content(html)
+    if not last_time:
+        return {"id": chap_id, "success": False, "error": "parse_failed"}
+
+    # Tạo session riêng cho task này
+    try:
+        async with AsyncSessionLocal() as db:
+            stmt = (
+                update(Chapter)
+                .where(Chapter.id == chap_id)
+                .values(
+                    last_updated=datetime.fromisoformat(last_time),
+                    meta={"is_crawledTime": True, "hako_url": hako_url},
+                )
+            )
+            await db.execute(stmt)
+            await db.commit()
+        return {"id": chap_id, "success": True}
+    except Exception as e:
+        return {"id": chap_id, "success": False, "error": str(e)}
+
 
 async def main():
-    db: Session = SessionLocal()
-    sem = asyncio.Semaphore(10)  # max 5 concurrent fetches
+    sem = asyncio.Semaphore(10)  # Giảm concurrency vì mỗi task tạo session riêng
+    BATCH_SIZE = 200
     
-    try:
-        chapters = db.query(Chapter).filter(
-            (Chapter.meta["is_crawled_content"].astext == "false")
-            | (Chapter.meta["is_crawled_content"] == None)
-        ).all()
+    failed_ids = []
+    total_success = 0
+    total_failed = 0
 
-        print(f"Found {len(chapters)} chapters to crawl")
+    # Session chỉ dùng để query, không dùng để update
+    async with AsyncSessionLocal() as db:
+        while True:
+            stmt = (
+                select(Chapter.id, Chapter.meta)
+                .filter(
+                    (Chapter.meta["is_crawledTime"].astext == "false")
+                    | (Chapter.meta["is_crawledTime"] == None)
+                )
+                .order_by(Chapter.id)
+                .limit(BATCH_SIZE)
+            )
+            result = await db.execute(stmt)
+            rows = result.all()
 
-        for chap in tqdm_asyncio(chapters, desc="Crawling chapters"):
-            # Chọn proxy ngẫu nhiên cho mỗi request
-            proxy_url = get_random_proxy()
+            if not rows:
+                break
+
+            # Tạo tasks - mỗi task tự tạo session riêng
+            tasks = []
+            for row in rows:
+                hako_url = row.meta.get("hako_url")
+                if not hako_url:
+                    continue
+                tasks.append(crawl_and_update(row.id, hako_url, sem))
+
+            # Process với progress bar
+            for coro in tqdm_asyncio.as_completed(
+                tasks, 
+                desc=f"📥 Crawling (✅{total_success} ❌{total_failed})"
+            ):
+                result = await coro
+                
+                if result["success"]:
+                    total_success += 1
+                else:
+                    total_failed += 1
+                    failed_ids.append(result["id"])
             
-            async with httpx.AsyncClient(
-                headers={"User-Agent": "Mozilla/5.0"},
-                proxy=proxy_url
-            ) as client:
-                await asyncio.sleep(1)
-                url = BASE_URL.format(chap.meta["hako_url"])
+            # Delay nhẹ giữa các batch
+            await asyncio.sleep(1)
 
-                try:
-                    html = await fetch_chapter(client, url, sem)
-                    new_title, content_html = parse_chapter_content(html)
-
-                    # if new_title:
-                    #     chap.title = new_title
-                    chap.content = content_html
-
-                    meta = dict(chap.meta) or {}
-                    meta["is_crawled_content"] = True
-                    chap.meta = meta
-
-                    db.add(chap)
-                    db.commit()
-                    
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429:
-                        print("❌ Too Many Requests. Switching proxy and continuing...")
-                        db.rollback()
-                        await asyncio.sleep(5)  # Đợi 5s trước khi thử proxy khác
-                        continue
-                    else:
-                        db.rollback()
-                        print(f"❌ HTTP error: {e}")
-                except Exception as e:
-                    db.rollback()
-                    print(f"❌ Error crawling chapter {chap.title}: {e}")
-                    continue  # Tiếp tục với chapter tiếp theo thay vì break
-                    
-    finally:
-        db.close()
-        global isDone
-        isDone = True
+        print(f"\n✅ Success: {total_success}")
+        print(f"❌ Failed: {total_failed}")
+        if failed_ids:
+            print(f"Failed IDs (first 100): {failed_ids[:100]}")
 
 
 if __name__ == "__main__":
-    while True:
+    retry_count = 0
+    max_retries = 3
+    
+    while retry_count < max_retries:
         try:
             asyncio.run(main())
-        except Exception as e:
-            print(f"❌ Script crashed: {e}")
-        
-        if isDone:
             print("✅ Crawling completed!")
             break
-            
-        print("⏳ Restarting in 5 minutes...")
-        time.sleep(300)  # 5 phút
+        except Exception as e:
+            retry_count += 1
+            print(f"❌ Script crashed (attempt {retry_count}/{max_retries}): {e}")
+            if retry_count < max_retries:
+                print("⏳ Restarting in 30 seconds...")
+                time.sleep(30)
+            else:
+                print("❌ Max retries reached. Exiting.")
+                raise

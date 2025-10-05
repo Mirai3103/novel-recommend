@@ -1,11 +1,11 @@
 import { Star, Eye, BookOpen } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { NovelBrief as GeneratedNovelBrief } from "@/lib/client"
+import { SrcNovelsSchemasNovelBrief } from "@/lib/client/client.schemas"
 import { getProxiedImageUrl } from "@/lib/utils/image"
 import Link from "next/link"
 import { Badge } from "./ui/badge"
-
-type NovelBrief = Omit<GeneratedNovelBrief, "meta"> & {
+import numeral from "numeral";
+type NovelBrief = Omit<SrcNovelsSchemasNovelBrief, "meta"> & {
   meta: {
     bookmark_count: string;
     hako_url: string;
@@ -79,7 +79,7 @@ export function NovelCard({ novel }: NovelCardProps) {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
                   <Eye className="h-4 w-4 text-cyan-400" />
-                  <span className="text-sm font-medium">{(Number(novel.meta.views) / 1000000).toFixed(1)}M</span>
+                  <span className="text-sm font-medium">{(numeral(novel.meta.views).format('0.0a'))}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <BookOpen className="h-4 w-4 text-purple-400" />
@@ -135,7 +135,7 @@ export function NovelCard({ novel }: NovelCardProps) {
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Eye className="h-3.5 w-3.5" />
-              <span className="font-medium">{novel.meta.views||5} views</span>
+              <span className="font-medium">{ numeral(novel.meta.views).format('0.0a')} views</span>
             </div>
           </div>
 

@@ -1,10 +1,11 @@
 import { Clock, BookOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { NovelBrief as GeneratedNovelBrief } from "@/lib/client"
+import { SrcNovelsSchemasNovelBrief } from "@/lib/client/client.schemas"
 import { getProxiedImageUrl } from "@/lib/utils/image"
 import Link from "next/link"
-type NovelBrief = Omit<GeneratedNovelBrief, "meta"> & {
+import dayjs from "dayjs"
+type NovelBrief = Omit<SrcNovelsSchemasNovelBrief, "meta"> & {
   meta: {
     bookmark_count: string;
     hako_url: string;
@@ -74,7 +75,7 @@ export function LatestUpdateCard({ novel }: LatestUpdateCardProps) {
             <div className="flex items-center justify-between pt-1 border-t border-border/50">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5 text-green-500" />
-                <span className="font-medium">{novel.last_updated|| "Unknown"}</span>
+                <span className="font-medium">{dayjs(novel.last_updated).fromNow()}</span>
               </div>
               
               {/* {novel.isHot && (

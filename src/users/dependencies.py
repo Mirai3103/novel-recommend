@@ -3,9 +3,9 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_db
+from src.database import get_async_db
 from src.models import User
 from src.users.utils import decode_access_token
 from src.users.service import get_user_by_id
@@ -13,14 +13,14 @@ from src.users.service import get_user_by_id
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
 
-def db_dep(db: Session = Depends(get_db)) -> Session:
+async def db_dep(db: AsyncSession = Depends(get_async_db)) -> AsyncSession:
     """Database session dependency"""
     return db
 
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> User:
     """Get current authenticated user from JWT token"""
     credentials_exception = HTTPException(
@@ -33,7 +33,7 @@ async def get_current_user(
     if user_id is None:
         raise credentials_exception
     
-    user = get_user_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if user is None:
         raise credentials_exception
     

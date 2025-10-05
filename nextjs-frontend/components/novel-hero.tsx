@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { BookOpen, BookmarkPlus, Star, Calendar, User, Palette, Tag, BookMarked, Share2, Check } from "lucide-react"
 import type { Novel } from "@/lib/novel-detail-data"
 import { NovelDetail } from "@/lib/client"
+import { getProxiedImageUrl } from "@/lib/utils/image"
 
 interface NovelHeroProps {
   novel: NovelDetail
@@ -65,7 +66,7 @@ export function NovelHero({ novel, averageRating, totalRatings, totalChapters }:
       <div className="space-y-4">
         <div className="relative group overflow-hidden rounded-xl">
           <Image
-            src={novel.image_url || "/placeholder.svg"}
+            src={getProxiedImageUrl(novel.image_url) || "/placeholder.svg"}
             alt={novel.title}
             width={300}
             height={450}

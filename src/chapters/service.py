@@ -1,14 +1,15 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import asc, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import asc, desc, select
 
 from src.models import Chapter, Volume, Novel
 from src.chapters.schemas import ChapterCreate, ChapterUpdate
 
 
-def create_chapter(db: Session, data: ChapterCreate) -> Chapter:
+async def create_chapter(db: AsyncSession, data: ChapterCreate) -> Chapter:
     chapter = Chapter(
         volume_id=data.volume_id,
         title=data.title,
@@ -17,45 +18,48 @@ def create_chapter(db: Session, data: ChapterCreate) -> Chapter:
         content=data.content,
     )
     db.add(chapter)
-    db.commit()
-    db.refresh(chapter)
+    await db.commit()
+    await db.refresh(chapter)
     return chapter
 
 
-def get_chapter(db: Session, chapter_id: UUID) -> Optional[Chapter]:
-    return (
-        db.query(Chapter)
+async def get_chapter(db: AsyncSession, chapter_id: UUID) -> Optional[Chapter]:
+    stmt = (
+        select(Chapter)
         .options(
-            joinedload(Chapter.volume).joinedload(Volume.novel)
+            selectinload(Chapter.volume).selectinload(Volume.novel)
         )
         .filter(Chapter.id == chapter_id)
-        .first()
     )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def list_chapters(
-    db: Session,
+async def list_chapters(
+    db: AsyncSession,
     volume_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20,
     sort_by: str = "order",
     sort_dir: str = "asc",
 ) -> List[Chapter]:
-    query = db.query(Chapter)
+    stmt = select(Chapter)
     if volume_id:
-        query = query.filter(Chapter.volume_id == volume_id)
+        stmt = stmt.filter(Chapter.volume_id == volume_id)
 
     sort_column = Chapter.order if sort_by == "order" else Chapter.last_updated
     if sort_dir == "desc":
-        query = query.order_by(desc(sort_column))
+        stmt = stmt.order_by(desc(sort_column))
     else:
-        query = query.order_by(asc(sort_column))
+        stmt = stmt.order_by(asc(sort_column))
 
-    return query.offset(skip).limit(limit).all()
+    stmt = stmt.offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
-def update_chapter(db: Session, chapter_id: UUID, data: ChapterUpdate) -> Optional[Chapter]:
-    chapter = get_chapter(db, chapter_id)
+async def update_chapter(db: AsyncSession, chapter_id: UUID, data: ChapterUpdate) -> Optional[Chapter]:
+    chapter = await get_chapter(db, chapter_id)
     if not chapter:
         return None
     if data.title is not None:
@@ -66,17 +70,17 @@ def update_chapter(db: Session, chapter_id: UUID, data: ChapterUpdate) -> Option
         chapter.meta = data.meta
     if data.content is not None:
         chapter.content = data.content
-    db.commit()
-    db.refresh(chapter)
+    await db.commit()
+    await db.refresh(chapter)
     return chapter
 
 
-def delete_chapter(db: Session, chapter_id: UUID) -> bool:
-    chapter = get_chapter(db, chapter_id)
+async def delete_chapter(db: AsyncSession, chapter_id: UUID) -> bool:
+    chapter = await get_chapter(db, chapter_id)
     if not chapter:
         return False
-    db.delete(chapter)
-    db.commit()
+    await db.delete(chapter)
+    await db.commit()
     return True
 
 

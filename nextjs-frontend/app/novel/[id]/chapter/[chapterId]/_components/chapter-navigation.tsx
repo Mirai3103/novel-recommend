@@ -1,37 +1,48 @@
-"use client"
+"use client";
 
-import { ArrowLeft, ArrowRight, List, ChevronDown, ChevronUp } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import Link from "next/link"
-import type { ChapterNavigation as ChapterNavigationType } from "@/app/novel/[id]/chapter/[chapterId]/_components/chapter-data"
-import { ChapterDetail, getNovelEndpointApiNovelsNovelIdGet } from "@/lib/client"
-import useQuery from "@/hooks/use-query"
-import { useEffect, useMemo, useState } from "react"
-import { cn } from "@/lib/utils"
+import {
+  ArrowLeft,
+  ArrowRight,
+  List,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import Link from "next/link";
+import type { ChapterNavigation as ChapterNavigationType } from "@/app/novel/[id]/chapter/[chapterId]/_components/chapter-data";
+import { ChapterDetail } from "@/lib/client/client.schemas";
+import { getNovelEndpointApiNovelsNovelIdGet } from "@/lib/client/novels";
+
+import useQuery from "@/hooks/use-query";
+import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ChapterNavigationProps {
-  chapter: ChapterDetail
+  chapter: ChapterDetail;
 }
 
 export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [expandedVolumes, setExpandedVolumes] = useState<Set<string>>(new Set());
+  const [expandedVolumes, setExpandedVolumes] = useState<Set<string>>(
+    new Set()
+  );
 
   const { data: novel } = useQuery({
     queryFn: getNovelEndpointApiNovelsNovelIdGet,
-    variables: {
-      path: {
-        novel_id: chapter.novel.id ?? "",
-      },
-    },
+    variables: chapter.novel.id ?? "",
     key: chapter.novel.id,
   });
   const navigation = useMemo<ChapterNavigationType | null>(() => {
-    if (!novel?.data || !chapter) return null;
+    if (!novel || !chapter) return null;
 
-    const allVolumes = [...(novel.data.volumes ?? [])].sort(
+    const allVolumes = [...(novel.volumes ?? [])].sort(
       (a, b) => (a.order ?? 0) - (b.order ?? 0)
     );
 
@@ -57,7 +68,7 @@ export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
       currentIndex < flatChapters.length - 1 ? currentIndex + 1 : null;
 
     return {
-      novel: novel.data,
+      novel: novel,
       current_chapter: chapter,
       total_chapters: flatChapters.length,
       previous_chapter: getChapterWithVolume(previousIndex),
@@ -116,14 +127,17 @@ export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
     }
   }, [chapter?.id]);
 
-
   return (
     <div className="border-t border-border/50 py-12">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="grid md:grid-cols-3 gap-4">
           {/* Previous */}
           <Link
-            href={previous_chapter ? `/novel/${chapter.novel.id}/chapter/${previous_chapter.id}` : "#"}
+            href={
+              previous_chapter
+                ? `/novel/${chapter.novel.id}/chapter/${previous_chapter.id}`
+                : "#"
+            }
             className={previous_chapter ? "" : "pointer-events-none"}
           >
             <Button
@@ -137,16 +151,20 @@ export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
               </div>
               {previous_chapter && (
                 <div className="text-left">
-                  <div className="text-xs text-muted-foreground">{previous_chapter?.volume?.title}</div>
-                  <div className="text-sm font-medium line-clamp-1">{previous_chapter.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {previous_chapter?.volume?.title}
+                  </div>
+                  <div className="text-sm font-medium line-clamp-1">
+                    {previous_chapter.title}
+                  </div>
                 </div>
               )}
             </Button>
           </Link>
 
           {/* Chapter List Drawer */}
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full h-full flex-col gap-2 bg-transparent"
             onClick={() => setIsOpen(true)}
           >
@@ -156,7 +174,11 @@ export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
 
           {/* Next */}
           <Link
-            href={next_chapter ? `/novel/${chapter.novel.id}/chapter/${next_chapter.id}` : "#"}
+            href={
+              next_chapter
+                ? `/novel/${chapter.novel.id}/chapter/${next_chapter.id}`
+                : "#"
+            }
             className={next_chapter ? "" : "pointer-events-none"}
           >
             <Button
@@ -170,8 +192,12 @@ export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
               </div>
               {next_chapter && (
                 <div className="text-right">
-                  <div className="text-xs text-muted-foreground">{next_chapter?.volume?.title}</div>
-                  <div className="text-sm font-medium line-clamp-1">{next_chapter.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {next_chapter?.volume?.title}
+                  </div>
+                  <div className="text-sm font-medium line-clamp-1">
+                    {next_chapter.title}
+                  </div>
                 </div>
               )}
             </Button>
@@ -184,90 +210,97 @@ export function ChapterNavigation({ chapter }: ChapterNavigationProps) {
         <SheetContent side="right" className="w-full sm:max-w-md p-0">
           <SheetHeader className="p-6 pb-4 border-b">
             <SheetTitle>Danh sách chương</SheetTitle>
-            <div className="text-sm text-muted-foreground">
-              {novel?.data?.title}
-            </div>
+            <div className="text-sm text-muted-foreground">{novel?.title}</div>
           </SheetHeader>
-          
+
           <ScrollArea className="h-[calc(100vh-8rem)]">
             <div className="p-4 space-y-2">
-              {novel?.data?.volumes?.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((volume) => (
-                <div 
-                  key={volume.id} 
-                  className={cn(
-                    "border rounded-lg overflow-hidden",
-                    volume.id === navigation?.current_volume?.id ? "border-primary" : "border-border/50"
-                  )}
-                >
-                  <button
-                    onClick={() => toggleVolume(volume.id)}
+              {novel?.volumes
+                ?.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((volume) => (
+                  <div
+                    key={volume.id}
                     className={cn(
-                      "w-full flex items-center gap-3 p-3 transition-colors text-left",
-                      volume.id === navigation?.current_volume?.id 
-                        ? "bg-primary/10" 
-                        : "bg-background/30 hover:bg-background/50"
+                      "border rounded-lg overflow-hidden",
+                      volume.id === navigation?.current_volume?.id
+                        ? "border-primary"
+                        : "border-border/50"
                     )}
                   >
-                    <img
-                      src={volume.image_url || "/placeholder.svg"}
-                      alt={volume.title!}
-                      className="w-12 h-16 object-cover rounded"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className={cn(
-                        "font-semibold text-sm truncate",
-                        volume.id === navigation?.current_volume?.id && "text-primary"
-                      )}>
-                        {volume.title}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {volume.chapters?.length || 0} chương
-                      </p>
-                    </div>
-                    {expandedVolumes.has(volume.id) ? (
-                      <ChevronUp className="w-4 h-4 shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 shrink-0" />
-                    )}
-                  </button>
+                    <button
+                      onClick={() => toggleVolume(volume.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 transition-colors text-left",
+                        volume.id === navigation?.current_volume?.id
+                          ? "bg-primary/10"
+                          : "bg-background/30 hover:bg-background/50"
+                      )}
+                    >
+                      <img
+                        src={volume.image_url || "/placeholder.svg"}
+                        alt={volume.title!}
+                        className="w-12 h-16 object-cover rounded"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3
+                          className={cn(
+                            "font-semibold text-sm truncate",
+                            volume.id === navigation?.current_volume?.id &&
+                              "text-primary"
+                          )}
+                        >
+                          {volume.title}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {volume.chapters?.length || 0} chương
+                        </p>
+                      </div>
+                      {expandedVolumes.has(volume.id) ? (
+                        <ChevronUp className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 shrink-0" />
+                      )}
+                    </button>
 
-                  {expandedVolumes.has(volume.id) && (
-                    <div className="divide-y divide-border/30">
-                      {volume.chapters
-                        ?.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                        .map((chap) => (
-                          <Link
-                            href={`/novel/${volume.novel_id}/chapter/${chap.id}`}
-                            key={chap.id}
-                            onClick={() => {
-                              setIsOpen(false)
-                              window.scrollTo({ top: 0, behavior: "smooth" })
-                            }}
-                            className={cn(
-                              "block p-3 transition-colors",
-                              chap.id === chapter.id
-                                ? "bg-primary/20 border-l-4 border-primary"
-                                : "hover:bg-background/30"
-                            )}
-                          >
-                            <div className={cn(
-                              "text-sm font-medium",
-                              chap.id === chapter.id 
-                                ? "text-primary" 
-                                : "group-hover:text-primary"
-                            )}>
-                              {chap.title}
-                            </div>
-                          </Link>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {expandedVolumes.has(volume.id) && (
+                      <div className="divide-y divide-border/30">
+                        {volume.chapters
+                          ?.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                          .map((chap) => (
+                            <Link
+                              href={`/novel/${volume.novel_id}/chapter/${chap.id}`}
+                              key={chap.id}
+                              onClick={() => {
+                                setIsOpen(false);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              className={cn(
+                                "block p-3 transition-colors",
+                                chap.id === chapter.id
+                                  ? "bg-primary/20 border-l-4 border-primary"
+                                  : "hover:bg-background/30"
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "text-sm font-medium",
+                                  chap.id === chapter.id
+                                    ? "text-primary"
+                                    : "group-hover:text-primary"
+                                )}
+                              >
+                                {chap.title}
+                              </div>
+                            </Link>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           </ScrollArea>
         </SheetContent>
       </Sheet>
     </div>
-  )
+  );
 }

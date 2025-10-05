@@ -4,6 +4,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 
+
+
 class ChapterBase(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1)
     order: Optional[int] = None
@@ -12,9 +14,11 @@ class ChapterBase(BaseModel):
     last_updated: Optional[datetime] = None
 
 
+
 class ChapterCreate(ChapterBase):
     volume_id: UUID
     title: str = Field(..., min_length=1)
+
 
 
 class ChapterUpdate(BaseModel):
@@ -24,12 +28,14 @@ class ChapterUpdate(BaseModel):
     content: Optional[str] = None
 
 
+
 class ChapterOut(ChapterBase):
     id: UUID
     volume_id: UUID
 
     class Config:
         from_attributes = True
+
 
 
 class VolumeBrief(BaseModel):
@@ -45,6 +51,7 @@ class VolumeBrief(BaseModel):
         from_attributes = True
 
 
+
 class NovelInfo(BaseModel):
     id: UUID
     title: str
@@ -55,6 +62,7 @@ class NovelInfo(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class ChapterDetail(ChapterOut):

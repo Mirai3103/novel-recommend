@@ -4,13 +4,18 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+
+
+
 class HistoryBase(BaseModel):
     novel_id: UUID
     chapter_id: UUID
 
 
+
 class HistoryCreate(HistoryBase):
     pass
+
 
 
 class HistoryOut(HistoryBase):
@@ -20,6 +25,7 @@ class HistoryOut(HistoryBase):
 
     class Config:
         from_attributes = True
+
 
 
 class NovelBrief(BaseModel):
@@ -32,6 +38,7 @@ class NovelBrief(BaseModel):
         from_attributes = True
 
 
+
 class ChapterBrief(BaseModel):
     id: UUID
     title: Optional[str] = None
@@ -39,6 +46,7 @@ class ChapterBrief(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class HistoryDetail(HistoryOut):

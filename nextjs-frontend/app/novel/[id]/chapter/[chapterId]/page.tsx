@@ -6,42 +6,43 @@ import { FloatingActionButtons } from "./_components/floating-action-buttons";
 
 import {
   getChapterEndpointApiChaptersChapterIdGet
-} from "@/lib/client";
+} from "@/lib/client/chapters";
 import { notFound } from "next/navigation";
+import md from "@/lib/markdown";
+import { tryAsync } from "@/lib/utils/promise";
+import { ChapterDetail } from "@/lib/client/client.schemas";
+import { FetchError } from "@/lib/api";
 
 export default  async function ChapterReadingPageContent({params}: {params: Promise<{id: string, chapterId: string}>}) {
   const { id, chapterId } = await params;
 
 
-  const chapter = await getChapterEndpointApiChaptersChapterIdGet({
-    path: {
-      chapter_id: chapterId ?? "",
-    },
-  });
-  if(!chapter.data) { 
+  const [chapter,error  ] = await tryAsync<ChapterDetail,FetchError>(getChapterEndpointApiChaptersChapterIdGet(chapterId ?? "",{}));
+  if(error?.status === 404) { 
     return notFound()
   }
 
+  chapter.content = md.render(chapter.content||"")
 
 
   return (
     <div className="min-h-screen">
       <ReadingNavbar
         novelId={id}
-        volumeTitle={chapter.data?.volume.title!}
-        novelTitle={chapter.data?.novel.title!}
-        chapterTitle={chapter?.data?.title!}
-        chapterOrder={chapter?.data?.order!}
+        volumeTitle={chapter.volume.title!}
+        novelTitle={chapter?.novel.title!}
+        chapterTitle={chapter?.title!}
+        chapterOrder={chapter?.order!}
       />
 
       <ReadingSettingsPanel />
 
       <ChapterContent
-        chapter={chapter?.data ?? undefined}
-        novelTitle={chapter?.data?.novel.title}
+        chapter={chapter ?? undefined}
+        novelTitle={chapter?.novel.title}
       />
 
-       <ChapterNavigation chapter={chapter.data!} />
+       <ChapterNavigation chapter={chapter!} />
     
       <FloatingActionButtons />
     </div>

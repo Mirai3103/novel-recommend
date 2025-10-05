@@ -2,7 +2,7 @@
 
 import { Eye, FileText } from "lucide-react";
 import { useReadingSettings } from "./page-context";
-import { ChapterDetail } from "@/lib/client";
+import { ChapterDetail } from "@/lib/client/client.schemas";
 import React, { useMemo } from "react";
 
 interface ChapterContentProps {

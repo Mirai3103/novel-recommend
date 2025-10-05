@@ -1,22 +1,25 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import desc, select
 
 from src.models import Bookmark, BookmarkType as BookmarkTypeModel, Novel, Chapter
 from src.bookmarks.schemas import BookmarkCreate, BookmarkUpdate
 from src.bookmarks.exceptions import BookmarkNotFoundError, BookmarkAlreadyExistsError
 
 
-def create_bookmark(db: Session, user_id: UUID, data: BookmarkCreate) -> Bookmark:
+async def create_bookmark(db: AsyncSession, user_id: UUID, data: BookmarkCreate) -> Bookmark:
     """Create a new bookmark for a user"""
     # Check if bookmark already exists
-    existing = db.query(Bookmark).filter(
+    stmt = select(Bookmark).filter(
         Bookmark.user_id == user_id,
         Bookmark.novel_id == data.novel_id,
         Bookmark.type == data.type.value
-    ).first()
+    )
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
     
     if existing:
         raise BookmarkAlreadyExistsError("Bookmark already exists for this novel")
@@ -29,55 +32,59 @@ def create_bookmark(db: Session, user_id: UUID, data: BookmarkCreate) -> Bookmar
         line=data.line,
     )
     db.add(bookmark)
-    db.commit()
-    db.refresh(bookmark)
+    await db.commit()
+    await db.refresh(bookmark)
     return bookmark
 
 
-def get_bookmark(db: Session, bookmark_id: UUID, user_id: UUID) -> Optional[Bookmark]:
+async def get_bookmark(db: AsyncSession, bookmark_id: UUID, user_id: UUID) -> Optional[Bookmark]:
     """Get a bookmark by ID (user must own it)"""
-    return (
-        db.query(Bookmark)
+    stmt = (
+        select(Bookmark)
         .options(
-            joinedload(Bookmark.novel),
-            joinedload(Bookmark.chapter)
+            selectinload(Bookmark.novel),
+            selectinload(Bookmark.chapter)
         )
         .filter(Bookmark.id == bookmark_id, Bookmark.user_id == user_id)
-        .first()
     )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def list_bookmarks(
-    db: Session,
+async def list_bookmarks(
+    db: AsyncSession,
     user_id: UUID,
     skip: int = 0,
     limit: int = 20,
     bookmark_type: Optional[str] = None,
 ) -> List[Bookmark]:
     """List all bookmarks for a user"""
-    query = db.query(Bookmark).options(
-        joinedload(Bookmark.novel),
-        joinedload(Bookmark.chapter)
+    stmt = select(Bookmark).options(
+        selectinload(Bookmark.novel),
+        selectinload(Bookmark.chapter)
     ).filter(Bookmark.user_id == user_id)
     
     if bookmark_type:
-        query = query.filter(Bookmark.type == bookmark_type)
+        stmt = stmt.filter(Bookmark.type == bookmark_type)
     
-    query = query.order_by(desc(Bookmark.created_at))
-    return query.offset(skip).limit(limit).all()
+    stmt = stmt.order_by(desc(Bookmark.created_at)).offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
-def update_bookmark(
-    db: Session,
+async def update_bookmark(
+    db: AsyncSession,
     bookmark_id: UUID,
     user_id: UUID,
     data: BookmarkUpdate
 ) -> Optional[Bookmark]:
     """Update a bookmark (chapter_id and line)"""
-    bookmark = db.query(Bookmark).filter(
+    stmt = select(Bookmark).filter(
         Bookmark.id == bookmark_id,
         Bookmark.user_id == user_id
-    ).first()
+    )
+    result = await db.execute(stmt)
+    bookmark = result.scalar_one_or_none()
     
     if not bookmark:
         return None
@@ -87,39 +94,43 @@ def update_bookmark(
     if data.line is not None:
         bookmark.line = data.line
     
-    db.commit()
-    db.refresh(bookmark)
+    await db.commit()
+    await db.refresh(bookmark)
     return bookmark
 
 
-def delete_bookmark(db: Session, bookmark_id: UUID, user_id: UUID) -> bool:
+async def delete_bookmark(db: AsyncSession, bookmark_id: UUID, user_id: UUID) -> bool:
     """Delete a bookmark (user must own it)"""
-    bookmark = db.query(Bookmark).filter(
+    stmt = select(Bookmark).filter(
         Bookmark.id == bookmark_id,
         Bookmark.user_id == user_id
-    ).first()
+    )
+    result = await db.execute(stmt)
+    bookmark = result.scalar_one_or_none()
     
     if not bookmark:
         return False
     
-    db.delete(bookmark)
-    db.commit()
+    await db.delete(bookmark)
+    await db.commit()
     return True
 
 
-def delete_bookmark_by_novel(db: Session, user_id: UUID, novel_id: UUID) -> bool:
+async def delete_bookmark_by_novel(db: AsyncSession, user_id: UUID, novel_id: UUID) -> bool:
     """Delete all bookmarks for a novel"""
-    bookmarks = db.query(Bookmark).filter(
+    stmt = select(Bookmark).filter(
         Bookmark.user_id == user_id,
         Bookmark.novel_id == novel_id
-    ).all()
+    )
+    result = await db.execute(stmt)
+    bookmarks = list(result.scalars().all())
     
     if not bookmarks:
         return False
     
     for bookmark in bookmarks:
-        db.delete(bookmark)
+        await db.delete(bookmark)
     
-    db.commit()
+    await db.commit()
     return True
 

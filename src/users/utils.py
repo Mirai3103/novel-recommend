@@ -80,10 +80,3 @@ def decode_refresh_token(token: str) -> Optional[UUID]:
         return None
 
 
-def paginate_params(skip: int | None, limit: int | None, default: int, maximum: int) -> Tuple[int, int]:
-    """Normalize pagination parameters"""
-    s = max(0, skip or 0)
-    l = limit or default
-    l = max(1, min(l, maximum))
-    return s, l
-

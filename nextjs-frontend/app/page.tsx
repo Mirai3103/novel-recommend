@@ -5,18 +5,19 @@ import { LatestUpdateCard } from "@/components/latest-update-card"
 import { CategoryCard } from "@/components/category-card"
 import { categories } from "@/lib/mock-data"
 import { Flame, Clock, Grid3x3 } from "lucide-react"
-import { listNovelsEndpointApiNovelsGet  } from "@/lib/client"
+import { listNovelsEndpointApiNovelsGet } from "@/lib/client/novels"
 
 export default async function HomePage() {
 
   const [trendingNovels, latestUpdates] = await Promise.all([
     listNovelsEndpointApiNovelsGet({
-      query: { limit: 10, sort_by: 'title', sort_dir: 'desc' }
-    }).then(res => res.data ?? []),
+      limit: 10, sort_by: 'views', sort_dir: 'desc' 
+    }).then(res => res as any[]),
     listNovelsEndpointApiNovelsGet({
-      query: { limit: 8, sort_by: 'last_updated', sort_dir: 'desc' }
-    }).then(res => res.data ?? [])
+      limit: 8, sort_by: 'last_updated', sort_dir: 'desc' 
+    }).then(res => res as any[])
   ])
+  
 
   return (
 

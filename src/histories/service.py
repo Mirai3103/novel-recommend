@@ -2,26 +2,29 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timedelta
 from src.chapters import service as chapter_service
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import desc, and_, select
 
 from src.models import History, Novel, Chapter
 from src.histories.schemas import HistoryCreate
 
 
-def create_history(db: Session, user_id: UUID, data: HistoryCreate) -> History:
+async def create_history(db: AsyncSession, user_id: UUID, data: HistoryCreate) -> History:
     """Create or update reading history"""
     # Check if history already exists for this user, novel, and chapter
-    existing = db.query(History).filter(
+    stmt = select(History).filter(
         History.user_id == user_id,
         History.novel_id == data.novel_id,
         History.chapter_id == data.chapter_id,
-    ).first()
+    )
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
     
     if existing:
         # Update timestamp by deleting and recreating
-        db.delete(existing)
-        db.commit()
+        await db.delete(existing)
+        await db.commit()
     
     history = History(
         user_id=user_id,
@@ -29,100 +32,109 @@ def create_history(db: Session, user_id: UUID, data: HistoryCreate) -> History:
         chapter_id=data.chapter_id,
     )
     db.add(history)
-    db.commit()
-    db.refresh(history)
+    await db.commit()
+    await db.refresh(history)
     return history
 
 
-def get_history(db: Session, history_id: UUID, user_id: UUID) -> Optional[History]:
+async def get_history(db: AsyncSession, history_id: UUID, user_id: UUID) -> Optional[History]:
     """Get a history entry by ID"""
-    return (
-        db.query(History)
+    stmt = (
+        select(History)
         .options(
-            joinedload(History.novel),
-            joinedload(History.chapter)
+            selectinload(History.novel),
+            selectinload(History.chapter)
         )
         .filter(History.id == history_id, History.user_id == user_id)
-        .first()
     )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def list_histories(
-    db: Session,
+async def list_histories(
+    db: AsyncSession,
     user_id: UUID,
     skip: int = 0,
     limit: int = 20,
     novel_id: Optional[UUID] = None,
 ) -> List[History]:
     """List reading history for a user"""
-    query = db.query(History).options(
-        joinedload(History.novel),
-        joinedload(History.chapter)
+    stmt = select(History).options(
+        selectinload(History.novel),
+        selectinload(History.chapter)
     ).filter(History.user_id == user_id)
     
     if novel_id:
-        query = query.filter(History.novel_id == novel_id)
+        stmt = stmt.filter(History.novel_id == novel_id)
     
-    query = query.order_by(desc(History.created_at))
-    return query.offset(skip).limit(limit).all()
+    stmt = stmt.order_by(desc(History.created_at)).offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
-def get_last_read_chapter(db: Session, user_id: UUID, novel_id: UUID) -> Optional[History]:
+async def get_last_read_chapter(db: AsyncSession, user_id: UUID, novel_id: UUID) -> Optional[History]:
     """Get the last chapter read for a novel"""
-    return (
-        db.query(History)
-        .options(joinedload(History.chapter))
+    stmt = (
+        select(History)
+        .options(selectinload(History.chapter))
         .filter(
             History.user_id == user_id,
             History.novel_id == novel_id
         )
         .order_by(desc(History.created_at))
-        .first()
     )
+    result = await db.execute(stmt)
+    return result.scalars().first()
 
 
-def delete_history(db: Session, history_id: UUID, user_id: UUID) -> bool:
+async def delete_history(db: AsyncSession, history_id: UUID, user_id: UUID) -> bool:
     """Delete a history entry"""
-    history = db.query(History).filter(
+    stmt = select(History).filter(
         History.id == history_id,
         History.user_id == user_id
-    ).first()
+    )
+    result = await db.execute(stmt)
+    history = result.scalar_one_or_none()
     
     if not history:
         return False
     
-    db.delete(history)
-    db.commit()
+    await db.delete(history)
+    await db.commit()
     return True
 
 
-def delete_all_history(db: Session, user_id: UUID) -> bool:
+async def delete_all_history(db: AsyncSession, user_id: UUID) -> bool:
     """Delete all history for a user"""
-    histories = db.query(History).filter(History.user_id == user_id).all()
+    stmt = select(History).filter(History.user_id == user_id)
+    result = await db.execute(stmt)
+    histories = list(result.scalars().all())
     
     if not histories:
         return False
     
     for history in histories:
-        db.delete(history)
+        await db.delete(history)
     
-    db.commit()
+    await db.commit()
     return True
 
 
-def delete_history_by_novel(db: Session, user_id: UUID, novel_id: UUID) -> bool:
+async def delete_history_by_novel(db: AsyncSession, user_id: UUID, novel_id: UUID) -> bool:
     """Delete all history entries for a specific novel"""
-    histories = db.query(History).filter(
+    stmt = select(History).filter(
         History.user_id == user_id,
         History.novel_id == novel_id
-    ).all()
+    )
+    result = await db.execute(stmt)
+    histories = list(result.scalars().all())
     
     if not histories:
         return False
     
     for history in histories:
-        db.delete(history)
+        await db.delete(history)
     
-    db.commit()
+    await db.commit()
     return True
 

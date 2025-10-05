@@ -2,12 +2,11 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bookmarks.schemas import BookmarkCreate, BookmarkDetail, BookmarkOut, BookmarkUpdate
 from src.bookmarks.dependencies import db_dep
-from src.bookmarks.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from src.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from src.bookmarks.service import (
     create_bookmark,
     delete_bookmark,
@@ -16,7 +15,7 @@ from src.bookmarks.service import (
     list_bookmarks,
     update_bookmark,
 )
-from src.bookmarks.utils import paginate_params
+from src.pagination import paginate_params
 from src.bookmarks.exceptions import BookmarkAlreadyExistsError
 from src.users.dependencies import CurrentUser
 
@@ -34,10 +33,10 @@ router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 async def create_bookmark_endpoint(
     data: BookmarkCreate,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> BookmarkOut:
     try:
-        bookmark = await run_in_threadpool(create_bookmark, db, current_user.id, data)
+        bookmark = await create_bookmark(db, current_user.id, data)
         return BookmarkOut.model_validate(bookmark)
     except BookmarkAlreadyExistsError as e:
         raise HTTPException(
@@ -58,12 +57,10 @@ async def list_bookmarks_endpoint(
     bookmark_type: Optional[str] = Query(default=None, regex="^(novel|chapter)$"),
     skip: int | None = Query(default=0, ge=0),
     limit: int | None = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
-    db: Session = Depends(db_dep),
+    db: AsyncSession = Depends(db_dep),
 ) -> List[BookmarkDetail]:
     s, l = paginate_params(skip, limit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
-    bookmarks = await run_in_threadpool(
-        list_bookmarks, db, current_user.id, s, l, bookmark_type
-    )
+    bookmarks = await list_bookmarks(db, current_user.id, s, l, bookmark_type)
     return [BookmarkDetail.model_validate(b) for b in bookmarks]
 
 
@@ -77,9 +74,9 @@ async def list_bookmarks_endpoint(
 async def get_bookmark_endpoint(
     bookmark_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> BookmarkDetail:
-    bookmark = await run_in_threadpool(get_bookmark, db, bookmark_id, current_user.id)
+    bookmark = await get_bookmark(db, bookmark_id, current_user.id)
     if not bookmark:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -99,11 +96,9 @@ async def update_bookmark_endpoint(
     bookmark_id: UUID,
     data: BookmarkUpdate,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> BookmarkOut:
-    bookmark = await run_in_threadpool(
-        update_bookmark, db, bookmark_id, current_user.id, data
-    )
+    bookmark = await update_bookmark(db, bookmark_id, current_user.id, data)
     if not bookmark:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -121,9 +116,9 @@ async def update_bookmark_endpoint(
 async def delete_bookmark_endpoint(
     bookmark_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> None:
-    ok = await run_in_threadpool(delete_bookmark, db, bookmark_id, current_user.id)
+    ok = await delete_bookmark(db, bookmark_id, current_user.id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -141,9 +136,9 @@ async def delete_bookmark_endpoint(
 async def delete_bookmarks_by_novel_endpoint(
     novel_id: UUID,
     current_user: CurrentUser,
-    db: Session = Depends(db_dep)
+    db: AsyncSession = Depends(db_dep)
 ) -> None:
-    ok = await run_in_threadpool(delete_bookmark_by_novel, db, current_user.id, novel_id)
+    ok = await delete_bookmark_by_novel(db, current_user.id, novel_id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

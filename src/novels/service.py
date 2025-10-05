@@ -1,14 +1,16 @@
 from typing import List, Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func, asc, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy import or_, func, asc, desc, select
 
 from src.models import Novel, Volume, Chapter
-from .schemas import NovelCreate, NovelUpdate
+from src.utils import measure_time
+from .schemas import NovelBrief, NovelCreate, NovelUpdate, NovelQuery
 
 
-def create_novel(db: Session, data: NovelCreate) -> Novel:
+async def create_novel(db: AsyncSession, data: NovelCreate) -> Novel:
     novel = Novel(
         title=data.title,
         other_titles=data.other_titles,
@@ -22,44 +24,59 @@ def create_novel(db: Session, data: NovelCreate) -> Novel:
         image_url=data.image_url,
     )
     db.add(novel)
-    db.commit()
-    db.refresh(novel)
+    await db.commit()
+    await db.refresh(novel)
     return novel
 
 
-def get_novel_detail(db: Session, novel_id: UUID) -> Optional[Novel]:
-    return (
-        db.query(Novel)
+async def get_novel_detail(db: AsyncSession, novel_id: UUID) -> Optional[Novel]:
+    stmt = (
+        select(Novel)
         .options(
-            joinedload(Novel.volumes).joinedload(Volume.chapters)
+            selectinload(Novel.volumes).selectinload(Volume.chapters)
         )
         .filter(Novel.id == novel_id)
-        .first()
     )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def get_novel(db: Session, novel_id: UUID) -> Optional[Novel]:
-    return db.query(Novel).filter(Novel.id == novel_id).first()
+async def get_novel(db: AsyncSession, novel_id: UUID) -> Optional[Novel]:
+    stmt = select(Novel).filter(Novel.id == novel_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def get_novel_by_title(db: Session, title: str) -> Optional[Novel]:
-    return db.query(Novel).filter(Novel.title == title).first()
+async def get_novel_by_title(db: AsyncSession, title: str) -> Optional[Novel]:
+    stmt = select(Novel).filter(Novel.title == title)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def list_novels(
-    db: Session,
-    skip: int = 0,
-    limit: int = 50,
-    keyword: Optional[str] = None,
-    statuses: Optional[Sequence[str]] = None,
-    sort_by: str = "last_updated",
-    sort_dir: str = "desc",
+
+@measure_time
+async def list_novels(
+    db: AsyncSession,
+    query: NovelQuery
 ) -> List[Novel]:
-    q = db.query(Novel)
+    exclude_cols = {"description"}
+    cols = [col for col in Novel.__table__.columns if col.name not in exclude_cols]
 
-    if keyword:
+
+    stmt = select(*cols)
+    skip = query.skip
+    limit = query.limit
+    keyword = query.keyword
+    statuses = query.statuses
+    author = query.author
+    tags = query.tags
+    artist = query.artist
+    type = query.type
+    sort_by = query.sort_by
+    sort_dir = query.sort_dir
+    if query.keyword:
         pattern = f"%{keyword}%"
-        q = q.filter(
+        stmt = stmt.filter(
             or_(
                 Novel.title.ilike(pattern),
                 func.array_to_string(Novel.other_titles, " ").ilike(pattern),
@@ -67,38 +84,57 @@ def list_novels(
         )
 
     if statuses:
-        q = q.filter(Novel.status.in_(list(statuses)))
+        stmt = stmt.filter(Novel.status.in_(list(statuses)))
+
+    if author:
+        stmt = stmt.filter(Novel.authors.contains(author))
+
+    # todo: add tags
+
+    if artist:
+        stmt = stmt.filter(Novel.artists.contains(artist))
+
+    if type:
+        stmt = stmt.filter(Novel.type == type)
 
     sort_map = {
         "status": Novel.status,
         "title": Novel.title,
         "last_updated": Novel.last_updated,
+        "views": Novel.total_views,
+        "average_rating": Novel.average_rating,
+        "favorites": Novel.total_favorites,
     }
     sort_col = sort_map.get(sort_by, Novel.last_updated)
     order_expr = asc(sort_col) if sort_dir.lower() == "asc" else desc(sort_col)
 
-    q = q.order_by(order_expr).offset(skip).limit(limit)
-    return q.all()
+    stmt = stmt.order_by(order_expr).offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    return list(result.mappings().all())
 
 
-def update_novel(db: Session, novel_id: UUID, data: NovelUpdate) -> Optional[Novel]:
-    novel = db.query(Novel).filter(Novel.id == novel_id).first()
+async def update_novel(db: AsyncSession, novel_id: UUID, data: NovelUpdate) -> Optional[Novel]:
+    stmt = select(Novel).filter(Novel.id == novel_id)
+    result = await db.execute(stmt)
+    novel = result.scalar_one_or_none()
     if not novel:
         return None
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(novel, field, value)
     db.add(novel)
-    db.commit()
-    db.refresh(novel)
+    await db.commit()
+    await db.refresh(novel)
     return novel
 
 
-def delete_novel(db: Session, novel_id: UUID) -> bool:
-    novel = db.query(Novel).filter(Novel.id == novel_id).first()
+async def delete_novel(db: AsyncSession, novel_id: UUID) -> bool:
+    stmt = select(Novel).filter(Novel.id == novel_id)
+    result = await db.execute(stmt)
+    novel = result.scalar_one_or_none()
     if not novel:
         return False
-    db.delete(novel)
-    db.commit()
+    await db.delete(novel)
+    await db.commit()
     return True
 
 

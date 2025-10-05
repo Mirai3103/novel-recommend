@@ -10,9 +10,15 @@ import { AuthProvider } from "@/contexts/auth-context";
 import {
   getCurrentUserInfoApiUsersMeGet,
   refreshAccessTokenApiUsersRefreshPost,
-  UserOut,
-} from "@/lib/client";
+  
+} from "@/lib/client/users";
 import { cookies } from "next/headers";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime.js";
+import "dayjs/locale/vi";
+import { UserOut } from "@/lib/client/client.schemas";
+dayjs.extend(relativeTime);
+dayjs.locale("vi");
 const roboto = Roboto({
   subsets: ["latin"],
   weight: ["400", "700", "900"],
@@ -42,17 +48,16 @@ export default async function RootLayout({
       const userResponse = await getCurrentUserInfoApiUsersMeGet({
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      user = userResponse.data;
+      user = userResponse;
     }
 
     if (!user && refreshToken) {
       console.log("Attempting to refresh access token...");
       const refreshResponse = await refreshAccessTokenApiUsersRefreshPost({
-        headers: { Authorization: `Bearer ${refreshToken}` },
-        body: { refresh_token: refreshToken },
-      });
+      refresh_token: refreshToken 
+      },{headers: { Authorization: `Bearer ${refreshToken}` }});
 
-      const newAccessToken = refreshResponse.data?.access_token;
+      const newAccessToken = refreshResponse.access_token;
 
       if (newAccessToken) {
         accessToken = newAccessToken;
@@ -60,7 +65,7 @@ export default async function RootLayout({
         const userResponse = await getCurrentUserInfoApiUsersMeGet({
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        user = userResponse.data;
+        user = userResponse;
       }
     }
   } catch (error: any) {

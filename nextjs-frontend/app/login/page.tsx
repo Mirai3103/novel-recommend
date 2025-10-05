@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { AuroraBackground } from "@/components/ui/shadcn-io/aurora-background"
 import { useToast } from "@/hooks/use-toast"
 import { loginSchema, type LoginFormData } from "@/lib/auth-schemas"
-import { loginApiUsersLoginPost } from "@/lib/client"
+import { loginApiUsersLoginPost } from "@/lib/client/users"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -36,14 +36,14 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       const response = await loginApiUsersLoginPost({
-        body:{
+   
           password: data.password,
           username: data.username,
-        }
+        
       })
       
       // Store access token in localStorage
-      localStorage.setItem('access_token', response.data?.access_token ?? '')
+      localStorage.setItem('access_token', response?.access_token ?? '')
       
       toast({
         title: "Đăng nhập thành công!",

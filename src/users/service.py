@@ -1,7 +1,8 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_
 
 from src.models import User
 from src.users.schemas import UserRegister, UserUpdate
@@ -9,12 +10,14 @@ from src.users.utils import hash_password, verify_password
 from src.users.exceptions import UserAlreadyExistsError, InvalidCredentialsError
 
 
-def create_user(db: Session, data: UserRegister) -> User:
+async def create_user(db: AsyncSession, data: UserRegister) -> User:
     """Create a new user"""
     # Check if username or email already exists
-    existing = db.query(User).filter(
-        (User.username == data.username) | (User.email == data.email)
-    ).first()
+    stmt = select(User).filter(
+        or_(User.username == data.username, User.email == data.email)
+    )
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
     if existing:
         raise UserAlreadyExistsError("Username or email already exists")
     print(data.password)
@@ -24,29 +27,35 @@ def create_user(db: Session, data: UserRegister) -> User:
         password=hash_password(data.password),
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
 
-def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
+async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
     """Get user by ID"""
-    return db.query(User).filter(User.id == user_id).first()
+    stmt = select(User).filter(User.id == user_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def get_user_by_username(db: Session, username: str) -> Optional[User]:
+async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User]:
     """Get user by username"""
-    return db.query(User).filter(User.username == username).first()
+    stmt = select(User).filter(User.username == username)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     """Get user by email"""
-    return db.query(User).filter(User.email == email).first()
+    stmt = select(User).filter(User.email == email)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def authenticate_user(db: Session, username: str, password: str) -> User:
+async def authenticate_user(db: AsyncSession, username: str, password: str) -> User:
     """Authenticate user and return user object"""
-    user = get_user_by_username(db, username)
+    user = await get_user_by_username(db, username)
     if not user:
         raise InvalidCredentialsError("Invalid username or password")
     if not verify_password(password, user.password):
@@ -54,28 +63,32 @@ def authenticate_user(db: Session, username: str, password: str) -> User:
     return user
 
 
-def update_user(db: Session, user_id: UUID, data: UserUpdate) -> Optional[User]:
+async def update_user(db: AsyncSession, user_id: UUID, data: UserUpdate) -> Optional[User]:
     """Update user"""
-    user = get_user_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if not user:
         return None
     
     if data.username is not None:
         # Check if new username is taken by another user
-        existing = db.query(User).filter(
+        stmt = select(User).filter(
             User.username == data.username,
             User.id != user_id
-        ).first()
+        )
+        result = await db.execute(stmt)
+        existing = result.scalar_one_or_none()
         if existing:
             raise UserAlreadyExistsError("Username already exists")
         user.username = data.username
     
     if data.email is not None:
         # Check if new email is taken by another user
-        existing = db.query(User).filter(
+        stmt = select(User).filter(
             User.email == data.email,
             User.id != user_id
-        ).first()
+        )
+        result = await db.execute(stmt)
+        existing = result.scalar_one_or_none()
         if existing:
             raise UserAlreadyExistsError("Email already exists")
         user.email = data.email
@@ -86,7 +99,7 @@ def update_user(db: Session, user_id: UUID, data: UserUpdate) -> Optional[User]:
     if data.password is not None:
         user.password = hash_password(data.password)
     
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 

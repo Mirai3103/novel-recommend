@@ -1,8 +1,8 @@
-import { ChapterDetail, NovelBrief, VolumeBrief } from "@/lib/client"
+import { ChapterDetail, SrcNovelsSchemasNovelBrief, VolumeBrief } from "@/lib/client/client.schemas"
 
 
 export interface ChapterNavigation {
-  novel: NovelBrief
+  novel: SrcNovelsSchemasNovelBrief
   current_chapter: ChapterDetail
   previous_chapter?: ChapterDetail
   next_chapter?: ChapterDetail

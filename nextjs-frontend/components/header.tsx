@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
-import { logoutApiUsersLogoutPost } from "@/lib/client"
+import { logoutApiUsersLogoutPost } from "@/lib/client/users"
 import { useTheme } from "./theme-provider"
 import { usePathname } from "next/navigation"
 

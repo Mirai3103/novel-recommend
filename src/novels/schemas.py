@@ -1,7 +1,35 @@
-from typing import Any, Dict, List, Optional
+from enum import Enum
+from typing import Any, Dict, List, Optional, Sequence
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field
+
+from src.pagination import MAX_PAGE_SIZE
+from src.pagination import SortDir
+
+
+class SortBy(str,Enum):
+    STATUS = "status"
+    TITLE = "title"
+    LAST_UPDATED = "last_updated"
+    VIEWS = "views"
+    AVERAGE_RATING = "average_rating"
+    FAVORITES = "favorites"
+
+
+
+class NovelQuery(BaseModel):
+    skip: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=MAX_PAGE_SIZE)
+    keyword: Optional[str] = Field(default=None, description="Search in title and other_titles")
+    statuses: Optional[Sequence[str]] = Field(default=None, description="Filter by statuses; repeat to pass multiple")
+    author: Optional[str] = Field(default=None, description="Filter by author")
+    tags: Optional[Sequence[str]] = Field(default=None, description="Filter by tags; repeat to pass multiple")
+    artist: Optional[str] = Field(default=None, description="Filter by artist")
+    type: Optional[str] = Field(default=None, description="Filter by type")
+    sort_by: SortBy = SortBy.LAST_UPDATED
+    sort_dir: SortDir = SortDir.DESC
+
 
 
 class NovelBase(BaseModel):
@@ -18,8 +46,10 @@ class NovelBase(BaseModel):
     last_updated: Optional[datetime] = None
 
 
+
 class NovelCreate(NovelBase):
     pass
+
 
 
 class NovelUpdate(BaseModel):
@@ -42,6 +72,7 @@ class NovelOut(NovelBase):
         from_attributes = True
 
 
+
 class ChapterOut(BaseModel):
     id: UUID
     volume_id: UUID
@@ -52,6 +83,7 @@ class ChapterOut(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class VolumeOut(BaseModel):
@@ -81,6 +113,7 @@ class NovelBrief(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class NovelDetail(NovelBase):

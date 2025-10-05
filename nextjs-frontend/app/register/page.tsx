@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AuroraBackground } from "@/components/ui/shadcn-io/aurora-background"
 import { useToast } from "@/hooks/use-toast"
 import { registerSchema, type RegisterFormData } from "@/lib/auth-schemas"
-import { registerApiUsersRegisterPost ,loginApiUsersLoginPost} from "@/lib/client"
+import { registerApiUsersRegisterPost ,loginApiUsersLoginPost } from "@/lib/client/users"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -46,11 +46,11 @@ export default function RegisterPage() {
     try {
       // Register user
       await registerApiUsersRegisterPost({
-        body:{
+   
           username: data.username,
           email: data.email,
           password: data.password,
-        }
+        
       })
 
       toast({
@@ -60,14 +60,14 @@ export default function RegisterPage() {
 
       // Auto login after successful registration
       const loginResponse = await loginApiUsersLoginPost({
-        body:{
+    
           username: data.username,
           password: data.password,
-        }
+     
       })
 
       // Store access token
-      localStorage.setItem('access_token', loginResponse.data?.access_token ?? '')
+      localStorage.setItem('access_token', loginResponse?.access_token ?? '')
 
       toast({
         title: "Chào mừng bạn!",
